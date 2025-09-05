@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Tracker_function": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7127",
+      "launchBrowser": false
+    }
+  }
+}
