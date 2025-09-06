@@ -66,7 +66,8 @@ namespace Tracker_function
 
         private async Task<decimal> GetFlightPrice(string accessToken, string origin, string destination, DateTime departure)
         {
-            var url = $"https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={origin}&destinationLocationCode={destination}&departureDate={departure}&adults=1&nonStop=true&currencyCode=INR&max=10";
+            var dateInYYYYMMDD = departure.ToString("yyyy-MM-dd");
+            var url = $"https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={origin}&destinationLocationCode={destination}&departureDate={dateInYYYYMMDD}&adults=1&nonStop=true&currencyCode=INR&max=10";
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", $"Bearer {accessToken}");
             var response = await httpClient.SendAsync(request);
