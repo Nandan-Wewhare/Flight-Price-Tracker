@@ -78,6 +78,7 @@ namespace Tracker_function
             var responseContent = await response.Content.ReadAsStringAsync();
             var flightResponse = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(responseContent);
             var data = (System.Text.Json.JsonElement)flightResponse["data"];
+            _telemetryClient.TrackTrace("Flight offers found " + data );
             if (data.GetArrayLength() == 0)
             {
                 return 0;
