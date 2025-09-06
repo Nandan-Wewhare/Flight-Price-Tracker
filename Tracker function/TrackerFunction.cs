@@ -26,9 +26,11 @@ namespace Tracker_function
             var cosmosClient = new CosmosClient(cosmosEndpoint, new DefaultAzureCredential());
             var container = cosmosClient.GetContainer(databaseId, containerId);
             var unprocessedItems = await GetAllUnprocessedItems(container);
-            _telemetryClient.TrackTrace($"Function triggered at {DateTime.UtcNow.ToString()}", new Dictionary<string, string> { { "UnprocessedItemCount", unprocessedItems.Count.ToString() } });
+            _telemetryClient.TrackTrace($"Function triggered at {DateTime.UtcNow.ToString()}");
+            _telemetryClient.TrackTrace("UnprocessedItemCount" + unprocessedItems.Count.ToString());
             foreach (var item in unprocessedItems)
             {
+                _telemetryClient.TrackTrace("item" + "~~~" + item.id + "~~~" +  item.Origin);
                 var currentPrice = await GetFlightPrice(accessToken, item.Origin, item.Destination, item.DepartureDate);
                 if (currentPrice <= (decimal)item.TargetPrice * 1.10m && !item.NotificationSent)
                 {
@@ -55,16 +57,16 @@ namespace Tracker_function
             };
             var requestContent = new FormUrlEncodedContent(requestBody);
             var response = await httpClient.PostAsync(url, requestContent);
-            _telemetryClient.TrackTrace($"Amadeus token API response status: {response}");
             response.EnsureSuccessStatusCode();
             var responseContent = await response.Content.ReadAsStringAsync();
             var tokenResponse = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(responseContent);
+            _telemetryClient.TrackTrace($"Amadeus token API response status: {tokenResponse["access_token"].ToString()}");
             return tokenResponse["access_token"].ToString();
         }
 
         private async Task<decimal> GetFlightPrice(string accessToken, string origin, string destination, DateTime departure)
         {
-            var url = $"https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={origin}&destinationLocationCode={destination}&departureDate={departure}&adults=1&nonStop=true&currencyCode=INR";
+            var url = $"https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={origin}&destinationLocationCode={destination}&departureDate={departure}&adults=1&nonStop=true&currencyCode=INR&max=10";
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", $"Bearer {accessToken}");
             var response = await httpClient.SendAsync(request);
