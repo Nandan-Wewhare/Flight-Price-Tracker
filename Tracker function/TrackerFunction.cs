@@ -26,14 +26,14 @@ namespace Tracker_function
             var cosmosClient = new CosmosClient(cosmosEndpoint, new DefaultAzureCredential());
             var container = cosmosClient.GetContainer(databaseId, containerId);
             var unprocessedItems = await GetAllUnprocessedItems(container);
-            _telemetryClient.TrackEvent($"Function triggered at {DateTime.UtcNow.ToString()}", new Dictionary<string, string> { { "UnprocessedItemCount", unprocessedItems.Count.ToString() } });
+            _telemetryClient.TrackTrace($"Function triggered at {DateTime.UtcNow.ToString()}", new Dictionary<string, string> { { "UnprocessedItemCount", unprocessedItems.Count.ToString() } });
             foreach (var item in unprocessedItems)
             {
                 var currentPrice = await GetFlightPrice(accessToken, item.Origin, item.Destination, item.DepartureDate);
                 if (currentPrice <= (decimal)item.TargetPrice * 1.10m && !item.NotificationSent)
                 {
                     // Send notification logic here (e.g., email, SMS)
-                    _telemetryClient.TrackEvent("Notification sent", new Dictionary<string, string> { { "UserEmail", item.UserEmail }, { "Origin", item.Origin }, { "Destination", item.Destination }, { "CurrentPrice", currentPrice.ToString() } });
+                    _telemetryClient.TrackTrace("Notification sent", new Dictionary<string, string> { { "UserEmail", item.UserEmail }, { "Origin", item.Origin }, { "Destination", item.Destination }, { "CurrentPrice", currentPrice.ToString() } });
                     // Update the item to mark notification as sent
                     item.NotificationSent = true;
                     await container.UpsertItemAsync(item, new PartitionKey(item.id));
@@ -55,21 +55,22 @@ namespace Tracker_function
             };
             var requestContent = new FormUrlEncodedContent(requestBody);
             var response = await httpClient.PostAsync(url, requestContent);
+            _telemetryClient.TrackTrace($"Amadeus token API response status: {response}");
             response.EnsureSuccessStatusCode();
             var responseContent = await response.Content.ReadAsStringAsync();
             var tokenResponse = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(responseContent);
-            _telemetryClient.TrackEvent("Fetched Amadeus access token" + tokenResponse);
             return tokenResponse["access_token"].ToString();
         }
 
         private async Task<decimal> GetFlightPrice(string accessToken, string origin, string destination, DateTime departure)
         {
-            var url = $"https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={origin}&destinationLocationCode={destination}&departureDate={departure}&adults=1";
+            var url = $"https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={origin}&destinationLocationCode={destination}&departureDate={departure}&adults=1&nonStop=true&currencyCode=INR";
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", $"Bearer {accessToken}");
             var response = await httpClient.SendAsync(request);
+            _telemetryClient.TrackTrace($"Flight price API response status: {url}" + response.StatusCode);
             response.EnsureSuccessStatusCode();
-            _telemetryClient.TrackEvent("Fetched flight price", new Dictionary<string, string> { { "Origin", origin }, { "Destination", destination }, { "DepartureDate", departure.ToString("yyyy-MM-dd") }});
+            _telemetryClient.TrackTrace("Fetched flight price", new Dictionary<string, string> { { "Origin", origin }, { "Destination", destination }, { "DepartureDate", departure.ToString("yyyy-MM-dd") } });
             var responseContent = await response.Content.ReadAsStringAsync();
             var flightResponse = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(responseContent);
             var data = (System.Text.Json.JsonElement)flightResponse["data"];
