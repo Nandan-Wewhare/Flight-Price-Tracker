@@ -38,7 +38,7 @@ namespace Tracker_function
                     _telemetryClient.TrackTrace("Notification sent", new Dictionary<string, string> { { "UserEmail", item.UserEmail }, { "Origin", item.Origin }, { "Destination", item.Destination }, { "CurrentPrice", currentPrice.ToString() } });
                     // Update the item to mark notification as sent
                     item.NotificationSent = true;
-                    item.TargetPrice = (double)currentPrice;
+                    item.TargetPrice = currentPrice;
                     await container.UpsertItemAsync(item, new PartitionKey(item.id));
                 }
             }
@@ -65,7 +65,7 @@ namespace Tracker_function
             return tokenResponse["access_token"].ToString();
         }
 
-        private async Task<decimal> GetFlightPrice(string accessToken, string origin, string destination, DateTime departure, string maxPrice)
+        private async Task<string> GetFlightPrice(string accessToken, string origin, string destination, DateTime departure, string maxPrice)
         {
             var dateInYYYYMMDD = departure.ToString("yyyy-MM-dd");
             var url = $"https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={origin}&destinationLocationCode={destination}&departureDate={dateInYYYYMMDD}&adults=1&nonStop=true&currencyCode=INR&max=10&maxPrice={maxPrice}";
@@ -81,11 +81,11 @@ namespace Tracker_function
             _telemetryClient.TrackTrace("Flight offers found " + data );
             if (data.GetArrayLength() == 0)
             {
-                return 0;
+                return "0";
             }
             var firstOffer = data[0];
             var priceInfo = firstOffer.GetProperty("price");
-            var totalPrice = priceInfo.GetProperty("total").GetDecimal();
+            var totalPrice = priceInfo.GetProperty("total").GetString();
             return totalPrice;
         }
 
@@ -116,7 +116,7 @@ namespace Tracker_function
         public string Origin { get; set; }
         public string Destination { get; set; }
         public DateTime DepartureDate { get; set; }
-        public double TargetPrice { get; set; }
+        public string TargetPrice { get; set; }
         public bool NotificationSent { get; set; }
         public DateTime CreatedAt { get; set; }
     }
