@@ -1,5 +1,6 @@
 using Azure.Identity;
 using Azure.Security.KeyVault.Secrets;
+using Microsoft.ApplicationInsights;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Functions.Worker;
 
@@ -11,20 +12,28 @@ namespace Tracker_function
         private static readonly string cosmosEndpoint = "https://cosmosaccount-flight-price-tracker.documents.azure.com:443/";
         private static readonly string databaseId = "FlightPriceTracker";
         private static readonly string containerId = "TrackingData";
+        private readonly TelemetryClient _telemetryClient;
+
+        public TrackerFunction(TelemetryClient telemetryClient)
+        {
+            _telemetryClient = telemetryClient;
+        }
+
         [Function("TrackerFunction")]
-        public static async Task Run([TimerTrigger("0 */5 * * * *")] TimerInfo myTimer)
+        public async Task Run([TimerTrigger("0 */5 * * * *")] TimerInfo myTimer)
         {
             var accessToken = await GetAmadeusToken();
             var cosmosClient = new CosmosClient(cosmosEndpoint, new DefaultAzureCredential());
             var container = cosmosClient.GetContainer(databaseId, containerId);
             var unprocessedItems = await GetAllUnprocessedItems(container);
+            _telemetryClient.TrackEvent($"Function triggered at {DateTime.UtcNow.ToString()}", new Dictionary<string, string> { { "UnprocessedItemCount", unprocessedItems.Count.ToString() } });
             foreach (var item in unprocessedItems)
             {
                 var currentPrice = await GetFlightPrice(accessToken, item.Origin, item.Destination, item.DepartureDate);
                 if (currentPrice <= (decimal)item.TargetPrice * 1.10m && !item.NotificationSent)
                 {
                     // Send notification logic here (e.g., email, SMS)
-                    Console.WriteLine($"Notification sent to {item.UserEmail} for flight from {item.Origin} to {item.Destination} at price {currentPrice}");
+                    _telemetryClient.TrackEvent("Notification sent", new Dictionary<string, string> { { "UserEmail", item.UserEmail }, { "Origin", item.Origin }, { "Destination", item.Destination }, { "CurrentPrice", currentPrice.ToString() } });
                     // Update the item to mark notification as sent
                     item.NotificationSent = true;
                     await container.UpsertItemAsync(item, new PartitionKey(item.id));
@@ -32,7 +41,7 @@ namespace Tracker_function
             }
         }
 
-        private static async Task<string> GetAmadeusToken()
+        private async Task<string> GetAmadeusToken()
         {
             var secretClient = new SecretClient(new Uri("https://flight-price-tracker-kv.vault.azure.net/"), new DefaultAzureCredential());
             var url = "https://test.api.amadeus.com/v1/security/oauth2/token";
@@ -49,16 +58,18 @@ namespace Tracker_function
             response.EnsureSuccessStatusCode();
             var responseContent = await response.Content.ReadAsStringAsync();
             var tokenResponse = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(responseContent);
+            _telemetryClient.TrackEvent("Fetched Amadeus access token" + tokenResponse);
             return tokenResponse["access_token"].ToString();
         }
 
-        private static async Task<decimal> GetFlightPrice(string accessToken, string origin, string destination, DateTime departure)
+        private async Task<decimal> GetFlightPrice(string accessToken, string origin, string destination, DateTime departure)
         {
             var url = $"https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={origin}&destinationLocationCode={destination}&departureDate={departure}&adults=1";
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", $"Bearer {accessToken}");
             var response = await httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
+            _telemetryClient.TrackEvent("Fetched flight price", new Dictionary<string, string> { { "Origin", origin }, { "Destination", destination }, { "DepartureDate", departure.ToString("yyyy-MM-dd") }});
             var responseContent = await response.Content.ReadAsStringAsync();
             var flightResponse = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(responseContent);
             var data = (System.Text.Json.JsonElement)flightResponse["data"];
@@ -68,9 +79,9 @@ namespace Tracker_function
             return totalPrice;
         }
 
-        private static async Task<List<PriceRecord>> GetAllUnprocessedItems(Container container)
+        private async Task<List<PriceRecord>> GetAllUnprocessedItems(Container container)
         {
-            var query = "SELECT * FROM TrackingData WHERE NotificationSent = false";
+            var query = "SELECT * FROM TrackingData t WHERE t.NotificationSent = false";
             var queryDefinition = new QueryDefinition(query);
             var results = new List<PriceRecord>();
 
@@ -83,6 +94,7 @@ namespace Tracker_function
                     results.Add(item);
                 }
             }
+            _telemetryClient.TrackEvent("Fetched unprocessed items", new Dictionary<string, string> { { "Count", results.Count.ToString() } });
             return results;
         }
     }
