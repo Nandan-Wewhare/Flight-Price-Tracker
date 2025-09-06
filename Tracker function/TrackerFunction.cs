@@ -30,14 +30,15 @@ namespace Tracker_function
             _telemetryClient.TrackTrace("UnprocessedItemCount" + unprocessedItems.Count.ToString());
             foreach (var item in unprocessedItems)
             {
-                _telemetryClient.TrackTrace("item" + "~~~" + item.id + "~~~" +  item.Origin);
-                var currentPrice = await GetFlightPrice(accessToken, item.Origin, item.Destination, item.DepartureDate);
-                if (currentPrice <= (decimal)item.TargetPrice * 1.10m && !item.NotificationSent)
+                _telemetryClient.TrackTrace("item" + "~~~" + item.id + "~~~" + item.Origin);
+                var currentPrice = await GetFlightPrice(accessToken, item.Origin, item.Destination, item.DepartureDate, item.TargetPrice.ToString());
+                if (!item.NotificationSent)
                 {
                     // Send notification logic here (e.g., email, SMS)
                     _telemetryClient.TrackTrace("Notification sent", new Dictionary<string, string> { { "UserEmail", item.UserEmail }, { "Origin", item.Origin }, { "Destination", item.Destination }, { "CurrentPrice", currentPrice.ToString() } });
                     // Update the item to mark notification as sent
                     item.NotificationSent = true;
+                    item.TargetPrice = (double)currentPrice;
                     await container.UpsertItemAsync(item, new PartitionKey(item.id));
                 }
             }
@@ -64,10 +65,10 @@ namespace Tracker_function
             return tokenResponse["access_token"].ToString();
         }
 
-        private async Task<decimal> GetFlightPrice(string accessToken, string origin, string destination, DateTime departure)
+        private async Task<decimal> GetFlightPrice(string accessToken, string origin, string destination, DateTime departure, string maxPrice)
         {
             var dateInYYYYMMDD = departure.ToString("yyyy-MM-dd");
-            var url = $"https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={origin}&destinationLocationCode={destination}&departureDate={dateInYYYYMMDD}&adults=1&nonStop=true&currencyCode=INR&max=10";
+            var url = $"https://test.api.amadeus.com/v2/shopping/flight-offers?originLocationCode={origin}&destinationLocationCode={destination}&departureDate={dateInYYYYMMDD}&adults=1&nonStop=true&currencyCode=INR&max=10&maxPrice={maxPrice}";
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Authorization", $"Bearer {accessToken}");
             var response = await httpClient.SendAsync(request);
@@ -77,6 +78,10 @@ namespace Tracker_function
             var responseContent = await response.Content.ReadAsStringAsync();
             var flightResponse = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(responseContent);
             var data = (System.Text.Json.JsonElement)flightResponse["data"];
+            if (data.GetArrayLength() == 0)
+            {
+                return 0;
+            }
             var firstOffer = data[0];
             var priceInfo = firstOffer.GetProperty("price");
             var totalPrice = priceInfo.GetProperty("total").GetDecimal();
