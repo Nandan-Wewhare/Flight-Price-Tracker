@@ -12,6 +12,13 @@ namespace FlightPriceTracker_API.Controllers
             _cosmosDbService = cosmosDbService;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetActiveTrackings()
+        {
+            var items = await _cosmosDbService.GetActiveRequestsAsync();
+            return Ok(items);
+        }
+
         [HttpPost]
         public async Task<IActionResult> CreateTracking([FromBody] FlightTrackingRequest request)
         {

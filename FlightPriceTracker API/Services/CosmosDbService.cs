@@ -31,12 +31,12 @@ public class CosmosDbService : ICosmosDbService
         }
     }
 
-    public async Task<IEnumerable<T>> GetActiveRequestsAsync<T>() where T : class
+    public async Task<IEnumerable<FlightTrackingRequest>> GetActiveRequestsAsync()
     {
-        var query = _container.GetItemLinqQueryable<T>(allowSynchronousQueryExecution: true)
-            .Where(x => (bool)x.GetType().GetProperty("NotificationSent").GetValue(x) == false);
+        var query = _container.GetItemLinqQueryable<FlightTrackingRequest>(allowSynchronousQueryExecution: true)
+            .Where(x => x.NotificationSent == false);
         var iterator = query.ToFeedIterator();
-        var results = new List<T>();
+        var results = new List<FlightTrackingRequest>();
         while (iterator.HasMoreResults)
         {
             foreach (var item in await iterator.ReadNextAsync())
