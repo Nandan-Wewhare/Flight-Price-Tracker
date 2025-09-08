@@ -33,8 +33,7 @@ public class CosmosDbService : ICosmosDbService
 
     public async Task<IEnumerable<FlightTrackingRequest>> GetActiveRequestsAsync()
     {
-        var query = _container.GetItemLinqQueryable<FlightTrackingRequest>(allowSynchronousQueryExecution: true)
-            .Where(x => x.NotificationSent == false);
+        var query = _container.GetItemLinqQueryable<FlightTrackingRequest>(allowSynchronousQueryExecution: true);
         var iterator = query.ToFeedIterator();
         var results = new List<FlightTrackingRequest>();
         while (iterator.HasMoreResults)
