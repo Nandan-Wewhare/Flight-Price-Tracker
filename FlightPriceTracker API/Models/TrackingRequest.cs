@@ -9,6 +9,7 @@ public class FlightTrackingRequest
     public string Destination { get; set; }
     public DateTime DepartureDate { get; set; }
     public decimal TargetPrice { get; set; }
+    public decimal ActualPrice { get; set; }
     public bool NotificationSent { get; set; }
     public DateTime CreatedAt { get; set; }
 }

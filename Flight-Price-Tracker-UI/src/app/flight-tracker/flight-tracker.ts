@@ -9,7 +9,8 @@ export interface FlightTracking {
   origin: string;
   destination: string;
   departureDate: Date;
-  targetPrice: number;
+  targetPrice: number | null;
+  actualPrice: number;
   notificationSent: boolean;
   createdAt: Date;
 }
@@ -24,7 +25,7 @@ export class FlightTrackerComponent implements OnInit {
   trackings: FlightTracking[] = [];
   loading = false;
   error = '';
-  newTracking: FlightTracking = { id: '', userEmail: '', origin: '', destination: '', departureDate: new Date(), targetPrice: 0, notificationSent: false, createdAt: new Date() };
+  newTracking: FlightTracking = { id: '', userEmail: '', origin: '', destination: '', departureDate: new Date(), targetPrice: null, actualPrice: 0, notificationSent: false, createdAt: new Date() };
   apiHost = 'https://price-tracker-api-dbhrbxcfdsbtfmaj.eastus2-01.azurewebsites.net/api';
 
   constructor(private http: HttpClient) { }

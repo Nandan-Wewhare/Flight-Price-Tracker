@@ -38,7 +38,7 @@ namespace Tracker_function
                     _telemetryClient.TrackTrace("Notification sent", new Dictionary<string, string> { { "UserEmail", item.UserEmail }, { "Origin", item.Origin }, { "Destination", item.Destination }, { "CurrentPrice", currentPrice.ToString() } });
                     // Update the item to mark notification as sent
                     item.NotificationSent = true;
-                    item.TargetPrice = currentPrice;
+                    item.ActualPrice = currentPrice;
                     await container.UpsertItemAsync(item, new PartitionKey(item.id));
                 }
             }
@@ -73,12 +73,11 @@ namespace Tracker_function
             request.Headers.Add("Authorization", $"Bearer {accessToken}");
             var response = await httpClient.SendAsync(request);
             _telemetryClient.TrackTrace($"Flight price API response status: {url}" + response.StatusCode);
-            response.EnsureSuccessStatusCode();
             _telemetryClient.TrackTrace("Fetched flight price", new Dictionary<string, string> { { "Origin", origin }, { "Destination", destination }, { "DepartureDate", departure.ToString("yyyy-MM-dd") } });
             var responseContent = await response.Content.ReadAsStringAsync();
             var flightResponse = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(responseContent);
             var data = (System.Text.Json.JsonElement)flightResponse["data"];
-            _telemetryClient.TrackTrace("Flight offers found " + data );
+            _telemetryClient.TrackTrace("Flight offers found " + data);
             if (data.GetArrayLength() == 0)
             {
                 return "0";
@@ -117,6 +116,7 @@ namespace Tracker_function
         public string Destination { get; set; }
         public DateTime DepartureDate { get; set; }
         public string TargetPrice { get; set; }
+        public string ActualPrice { get; set; }
         public bool NotificationSent { get; set; }
         public DateTime CreatedAt { get; set; }
     }
