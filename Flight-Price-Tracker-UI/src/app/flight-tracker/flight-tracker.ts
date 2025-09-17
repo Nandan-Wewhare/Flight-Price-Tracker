@@ -24,8 +24,19 @@ export interface FlightTracking {
 export class FlightTrackerComponent implements OnInit {
   trackings: FlightTracking[] = [];
   loading = false;
+  adding = false;
   error = '';
-  newTracking: FlightTracking = { id: '', userEmail: '', origin: '', destination: '', departureDate: new Date(), targetPrice: null, actualPrice: 0, notificationSent: false, createdAt: new Date() };
+  newTracking: FlightTracking = {
+    id: '',
+    userEmail: '',
+    origin: '',
+    destination: '',
+    departureDate: new Date(),
+    targetPrice: null,
+    actualPrice: 0,
+    notificationSent: false,
+    createdAt: new Date()
+  };
   apiHost = 'https://price-tracker-api-dbhrbxcfdsbtfmaj.eastus2-01.azurewebsites.net/api';
 
   constructor(private http: HttpClient) { }
@@ -49,13 +60,28 @@ export class FlightTrackerComponent implements OnInit {
   }
 
   addTracking() {
+    this.adding = true;
     this.http.post<FlightTracking>(`${this.apiHost}/Tracking`, this.newTracking).subscribe({
       next: (tracking) => {
         this.trackings.push(tracking);
         this.error = '';
+        this.adding = false;
+        // Reset form  
+        this.newTracking = {
+          id: '',
+          userEmail: '',
+          origin: '',
+          destination: '',
+          departureDate: new Date(),
+          targetPrice: null,
+          actualPrice: 0,
+          notificationSent: false,
+          createdAt: new Date()
+        };
       },
       error: () => {
         this.error = 'Error adding tracking';
+        this.adding = false;
       }
     });
   }
